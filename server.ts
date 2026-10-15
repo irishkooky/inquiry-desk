@@ -55,8 +55,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': type });
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
-    res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(err instanceof Error && err.stack ? err.stack : String(err));
+    // サーバーのコンソールにも出す（どこで落ちたかを追いやすくするため）
+    console.error(`[500] ${req.method} ${req.url}`, err);
+    const message = err instanceof Error ? err.message : String(err);
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: message }));
   }
 });
 
