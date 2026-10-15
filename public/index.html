@@ -9,6 +9,7 @@
     textarea { width: 100%; min-height: 8rem; }
     button { margin-top: 0.75rem; padding: 0.5rem 1rem; }
     #result { margin-top: 1rem; padding: 0.75rem; background: #f4f4f4; border-radius: 6px; }
+    #result.error { background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -22,16 +23,25 @@
     const resultEl = document.getElementById('result');
     document.getElementById('run').addEventListener('click', async () => {
       const text = textEl.value;
-      const res = await fetch('/api/classify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      const data = await res.json();
       resultEl.hidden = false;
-      resultEl.textContent = res.ok
-        ? `分類: ${data.category}`
-        : `エラー: ${data.error || res.status}`;
+      resultEl.className = '';
+      try {
+        const res = await fetch('/api/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          resultEl.className = 'error';
+          resultEl.textContent = `エラーが発生しました（${res.status}）: ${data.error || res.statusText}`;
+          return;
+        }
+        resultEl.textContent = `分類: ${data.category}`;
+      } catch (err) {
+        resultEl.className = 'error';
+        resultEl.textContent = `エラーが発生しました: ${err.message}`;
+      }
     });
   </script>
 </body>
