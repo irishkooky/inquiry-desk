@@ -63,5 +63,5 @@ const server = http.createServer(async (req, res) => {
 const HOST = '127.0.0.1';
 
 server.listen(PORT, HOST, () => {
-  console.log(`起動しました http://${HOST}:${PORT}`);
+  console.log(`起動しました http://localhost:${PORT}`);
 });
