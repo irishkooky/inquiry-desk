@@ -1,15 +1,16 @@
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
-const { classify } = require('./classify.js');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { classify } from './classify.ts';
 
 const PORT = 3000;
-const PUBLIC = path.join(__dirname, 'public');
+const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
-function readBody(req) {
+function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (c) => chunks.push(c));
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
@@ -21,7 +22,7 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       let text = '';
       try {
-        const json = JSON.parse(raw || '{}');
+        const json: { text?: string } = JSON.parse(raw || '{}');
         text = json.text ?? '';
       } catch {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -34,7 +35,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    let filePath = path.join(PUBLIC, req.url === '/' ? 'index.html' : req.url);
+    let filePath = path.join(PUBLIC, req.url === '/' || !req.url ? 'index.html' : req.url);
     if (!filePath.startsWith(PUBLIC)) {
       res.writeHead(403);
       res.end('Forbidden');
@@ -55,7 +56,7 @@ const server = http.createServer(async (req, res) => {
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
     res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end(String(err && err.stack ? err.stack : err));
+    res.end(err instanceof Error && err.stack ? err.stack : String(err));
   }
 });
 

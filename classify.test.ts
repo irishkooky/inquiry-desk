@@ -1,6 +1,6 @@
-const { describe, it } = require('node:test');
-const assert = require('node:assert/strict');
-const { classify } = require('./classify.js');
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { classify } from './classify.ts';
 
 describe('classify', () => {
   it('料金キーワードを料金に分類する', () => {
