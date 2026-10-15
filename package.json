@@ -3,11 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "description": "問い合わせ文を分類する小さなデモ（Claude Code研修の題材用リポジトリ）",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
+    "start": "tsx server.ts",
+    "test": "tsx --test classify.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   }
 }
