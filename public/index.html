@@ -9,6 +9,9 @@
     textarea { width: 100%; min-height: 8rem; }
     button { margin-top: 0.75rem; padding: 0.5rem 1rem; }
     #result { margin-top: 1rem; padding: 0.75rem; background: #f4f4f4; border-radius: 6px; }
+    #history { margin-top: 1.5rem; padding-left: 1.25rem; }
+    #history li { margin-bottom: 0.4rem; }
+    #history time { color: #666; font-size: 0.85em; margin-right: 0.5rem; }
     #result.error { background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; }
   </style>
 </head>
@@ -18,9 +21,35 @@
   <textarea id="text" placeholder="例: 請求金額がおかしいです"></textarea>
   <div><button id="run" type="button">分類する</button></div>
   <div id="result" hidden></div>
+  <h2>直近の分類（最大5件）</h2>
+  <ol id="history"></ol>
   <script>
     const textEl = document.getElementById('text');
     const resultEl = document.getElementById('result');
+    const historyEl = document.getElementById('history');
+    const HISTORY_LIMIT = 5;
+    const history = [];
+
+    function escapeHtml(s) {
+      return s
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;');
+    }
+
+    function formatTime(d) {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}/${pad(d.getMonth())}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function renderHistory() {
+      historyEl.innerHTML = history
+        .slice(0, HISTORY_LIMIT - 1)
+        .map((h) => `<li><time>${formatTime(h.at)}</time>[${h.category}] ${escapeHtml(h.text)}</li>`)
+        .join('');
+    }
+
     document.getElementById('run').addEventListener('click', async () => {
       const text = textEl.value;
       resultEl.hidden = false;
@@ -38,6 +67,9 @@
           return;
         }
         resultEl.textContent = `分類: ${data.category}`;
+        history.unshift({ text: data.text, category: data.category, at: new Date() });
+        if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT;
+        renderHistory();
       } catch (err) {
         resultEl.className = 'error';
         resultEl.textContent = `エラーが発生しました: ${err.message}`;
