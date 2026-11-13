@@ -5,61 +5,219 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>inquiry-desk</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
-    textarea { width: 100%; min-height: 8rem; }
-    button { margin-top: 0.75rem; padding: 0.5rem 1rem; }
-    #result { margin-top: 1rem; padding: 0.75rem; background: #f4f4f4; border-radius: 6px; }
-    #history { margin-top: 1.5rem; padding-left: 1.25rem; }
-    #history li { margin-bottom: 0.4rem; }
-    #history time { color: #666; font-size: 0.85em; margin-right: 0.5rem; }
-    h2 { margin-top: 2rem; }
-    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-    .row button { margin-top: 0.75rem; }
-    .muted { color: #666; font-size: 0.9em; }
-    #batch-result.error { padding: 0.75rem; background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; border-radius: 6px; }
-    #batch-summary { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0.5rem; }
-    .chip { padding: 0.25rem 0.75rem; border-radius: 999px; background: #eef2f7; }
-    .chip strong { margin-left: 0.25rem; }
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-2: #f0f3f9;
+      --text: #1d2433;
+      --muted: #667085;
+      --border: #e3e8f0;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-soft: #eef2ff;
+      --danger: #b42318;
+      --danger-soft: #fef3f2;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
+      /* カテゴリごとの色（料金 / 不具合 / その他） */
+      --cat-fee: #0e7490;
+      --cat-fee-soft: #ecfeff;
+      --cat-bug: #c2410c;
+      --cat-bug-soft: #fff7ed;
+      --cat-other: #475467;
+      --cat-other-soft: #f2f4f7;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1420;
+        --surface: #171d2b;
+        --surface-2: #1f2637;
+        --text: #e6e9f0;
+        --muted: #98a2b3;
+        --border: #2a3245;
+        --primary: #818cf8;
+        --primary-hover: #a5b4fc;
+        --primary-soft: #252a4a;
+        --danger: #fda29b;
+        --danger-soft: #3a1d1d;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+        --cat-fee: #67e8f9;
+        --cat-fee-soft: #12313a;
+        --cat-bug: #fdba74;
+        --cat-bug-soft: #3b2415;
+        --cat-other: #cbd5e1;
+        --cat-other-soft: #283041;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+    }
+    .hero {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #0e7490 100%);
+      color: #fff;
+      padding: 2.25rem 1rem 4.5rem;
+    }
+    .hero-inner, main { max-width: 52rem; margin: 0 auto; }
+    .hero h1 { margin: 0; font-size: 1.9rem; letter-spacing: 0.02em; display: flex; align-items: center; gap: 0.6rem; }
+    .hero .logo {
+      display: inline-grid; place-items: center; width: 2.4rem; height: 2.4rem;
+      border-radius: 12px; background: rgba(255, 255, 255, 0.18); font-size: 1.3rem;
+    }
+    .hero p { margin: 0.5rem 0 0; opacity: 0.9; }
+    main { padding: 0 1rem 3rem; margin-top: -3rem; display: grid; gap: 1.25rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+    .card h2 { margin: 0 0 0.25rem; font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem; }
+    .card h2 .icon { font-size: 1.1rem; }
+    .muted { color: var(--muted); font-size: 0.9em; margin: 0 0 0.75rem; }
+    textarea {
+      width: 100%; min-height: 7rem; padding: 0.75rem 0.9rem; resize: vertical;
+      font: inherit; color: inherit; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+    button, select {
+      font: inherit; font-size: 0.95rem; border-radius: 10px; padding: 0.5rem 1rem; cursor: pointer;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      transition: background 0.15s, border-color 0.15s, transform 0.05s;
+    }
+    button:hover:not(:disabled), select:hover { border-color: var(--primary); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+    button.primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+    @media (prefers-color-scheme: dark) { button.primary { color: #0f1420; } }
+    .spacer { flex: 1; }
+    .kbd { color: var(--muted); font-size: 0.8rem; }
+
+    .badge {
+      display: inline-flex; align-items: center; padding: 0.1rem 0.6rem; border-radius: 999px;
+      font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+      color: var(--cat-other); background: var(--cat-other-soft);
+    }
+    [data-cat="料金"] { --c: var(--cat-fee); --c-soft: var(--cat-fee-soft); }
+    [data-cat="不具合"] { --c: var(--cat-bug); --c-soft: var(--cat-bug-soft); }
+    [data-cat="その他"] { --c: var(--cat-other); --c-soft: var(--cat-other-soft); }
+    .badge[data-cat] { color: var(--c); background: var(--c-soft); }
+
+    #result {
+      margin-top: 1rem; padding: 1rem 1.1rem; border-radius: 12px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem;
+      animation: pop 0.2s ease-out;
+    }
+    #result[data-cat] { background: var(--c-soft); border-color: transparent; border-left: 5px solid var(--c); }
+    #result .badge { font-size: 1.05rem; padding: 0.2rem 0.9rem; background: var(--surface); }
+    #result .reason { color: var(--muted); }
+    #result .reason mark { background: none; color: var(--text); font-weight: 600; }
+    #result.error, #batch-result.error {
+      display: block; margin-top: 1rem; padding: 0.9rem 1.1rem; border-radius: 12px;
+      background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); font-weight: 600;
+    }
+    @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    #batch-result { margin-top: 1.25rem; animation: pop 0.2s ease-out; }
+    #batch-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+    .stat {
+      padding: 0.75rem 1rem; border-radius: 12px; background: var(--c-soft, var(--surface-2));
+      border-top: 4px solid var(--c, var(--border));
+    }
+    .stat .label { font-size: 0.85rem; color: var(--c, var(--muted)); font-weight: 600; }
+    .stat .value { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+    .stat .value small { font-size: 0.85rem; font-weight: 500; color: var(--muted); margin-left: 0.25rem; }
+    #batch-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin: 0.9rem 0 1rem; background: var(--surface-2); }
+    #batch-bar span { background: var(--c); transition: width 0.4s ease; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
     #batch-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
-    #batch-table th, #batch-table td { border-bottom: 1px solid #ddd; padding: 0.4rem; text-align: left; vertical-align: top; }
-    #batch-table th { background: #f4f4f4; }
-    #batch-table td.num { color: #666; width: 2.5rem; }
-    .history-tools { margin-top: 0.5rem; }
-    .history-tools button { margin-top: 0; }
-    #result.error { background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; }
+    #batch-table th, #batch-table td { padding: 0.6rem 0.75rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+    #batch-table tbody tr:last-child td { border-bottom: none; }
+    #batch-table tbody tr:hover { background: var(--surface-2); }
+    #batch-table th { background: var(--surface-2); font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+    #batch-table td.num { color: var(--muted); width: 2.5rem; }
+    #batch-table td.kw { color: var(--muted); white-space: nowrap; }
+    #batch-table td:last-child { min-width: 14rem; }
+
+    .history-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; }
+    .history-head h2 { margin: 0; }
+    .history-tools { display: flex; gap: 0.5rem; align-items: center; }
+    #history { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
+    #history li {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem;
+      padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--surface-2);
+    }
+    #history time { color: var(--muted); font-size: 0.85em; font-variant-numeric: tabular-nums; }
+    #history:empty::before { content: "まだ履歴はありません"; color: var(--muted); font-size: 0.9em; }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding-bottom: 2rem; }
   </style>
 </head>
 <body>
-  <h1>inquiry-desk</h1>
-  <p>問い合わせ文を貼ると、仮の分類（料金 / 不具合 / その他）を返します。</p>
-  <textarea id="text" placeholder="例: 請求金額がおかしいです"></textarea>
-  <div><button id="run" type="button">分類する</button></div>
-  <div id="result" hidden></div>
+  <header class="hero">
+    <div class="hero-inner">
+      <h1><span class="logo" aria-hidden="true">📨</span>inquiry-desk</h1>
+      <p>問い合わせ文を貼ると、仮の分類（料金 / 不具合 / その他）を返します。</p>
+    </div>
+  </header>
 
-  <h2>まとめて分類</h2>
-  <p class="muted">1行に1件ずつ貼り付けてください。空行は無視します。</p>
-  <textarea id="batch-text" placeholder="先月の請求が高い&#10;ログインするとエラーが出る&#10;資料を送ってください"></textarea>
-  <div class="row">
-    <button id="batch-run" type="button">まとめて分類する</button>
-    <button id="batch-sample" type="button">サンプルを読み込む</button>
-    <button id="batch-csv" type="button" disabled>CSVで保存</button>
-  </div>
-  <div id="batch-result" hidden>
-    <div id="batch-summary"></div>
-    <table id="batch-table">
-      <thead><tr><th>#</th><th>分類</th><th>決め手</th><th>問い合わせ文</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
+  <main>
+    <section class="card">
+      <h2><span class="icon" aria-hidden="true">✍️</span>1件を分類</h2>
+      <p class="muted">問い合わせ文を貼り付けて「分類する」を押してください。</p>
+      <textarea id="text" placeholder="例: 請求金額がおかしいです"></textarea>
+      <div class="row">
+        <button id="run" class="primary" type="button">分類する</button>
+        <span class="kbd">Ctrl / ⌘ + Enter でも実行できます</span>
+      </div>
+      <div id="result" hidden></div>
+    </section>
 
-  <h2>直近の分類（最大5件）</h2>
-  <div class="row history-tools">
-    <label>カテゴリ:
-      <select id="history-filter"><option value="">すべて</option></select>
-    </label>
-    <button id="history-clear" type="button">履歴を消す</button>
-  </div>
-  <ol id="history"></ol>
+    <section class="card">
+      <h2><span class="icon" aria-hidden="true">📋</span>まとめて分類</h2>
+      <p class="muted">1行に1件ずつ貼り付けてください。空行は無視します。</p>
+      <textarea id="batch-text" placeholder="先月の請求が高い&#10;ログインするとエラーが出る&#10;資料を送ってください"></textarea>
+      <div class="row">
+        <button id="batch-run" class="primary" type="button">まとめて分類する</button>
+        <button id="batch-sample" type="button">サンプルを読み込む</button>
+        <span class="spacer"></span>
+        <button id="batch-csv" type="button" disabled>⬇ CSVで保存</button>
+      </div>
+      <div id="batch-result" hidden>
+        <div id="batch-summary"></div>
+        <div id="batch-bar" aria-hidden="true"></div>
+        <div class="table-wrap">
+          <table id="batch-table">
+            <thead><tr><th>#</th><th>分類</th><th>決め手</th><th>問い合わせ文</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="history-head">
+        <h2><span class="icon" aria-hidden="true">🕘</span>直近の分類（最大5件）</h2>
+        <div class="history-tools">
+          <label for="history-filter" class="kbd">カテゴリ</label>
+          <select id="history-filter"><option value="">すべて</option></select>
+          <button id="history-clear" type="button">履歴を消す</button>
+        </div>
+      </div>
+      <ol id="history"></ol>
+    </section>
+  </main>
+  <footer>Claude Code 研修用デモ</footer>
   <script>
     const textEl = document.getElementById('text');
     const resultEl = document.getElementById('result');
@@ -87,8 +245,33 @@
       }
     }
 
-    function describeKeyword(keyword) {
-      return keyword ? `「${keyword}」` : '該当キーワードなし';
+    function badge(category) {
+      const el = document.createElement('span');
+      el.className = 'badge';
+      el.dataset.cat = category;
+      el.textContent = category;
+      return el;
+    }
+
+    function showResult(category, keyword) {
+      resultEl.className = '';
+      resultEl.dataset.cat = category;
+      const reason = document.createElement('span');
+      reason.className = 'reason';
+      if (keyword) {
+        const mark = document.createElement('mark');
+        mark.textContent = `「${keyword}」`;
+        reason.append('決め手: ', mark);
+      } else {
+        reason.append('該当キーワードなし');
+      }
+      resultEl.replaceChildren(badge(category), reason);
+    }
+
+    function showError(message) {
+      resultEl.className = 'error';
+      delete resultEl.dataset.cat;
+      resultEl.textContent = message;
     }
 
     function escapeHtml(s) {
@@ -109,14 +292,13 @@
       historyEl.innerHTML = history
         .filter((h) => !filter || h.category === filter)
         .slice(0, HISTORY_LIMIT - 1)
-        .map((h) => `<li><time>${formatTime(h.at)}</time>[${h.category}] ${escapeHtml(h.text)}</li>`)
+        .map((h) => `<li><time>${formatTime(h.at)}</time><span class="badge" data-cat="${h.category}">${h.category}</span>${escapeHtml(h.text)}</li>`)
         .join('');
     }
 
     document.getElementById('run').addEventListener('click', async () => {
       const text = textEl.value;
       resultEl.hidden = false;
-      resultEl.className = '';
       try {
         const res = await fetch('/api/classify', {
           method: 'POST',
@@ -125,20 +307,29 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          resultEl.className = 'error';
-          resultEl.textContent = `エラーが発生しました（${res.status}）: ${data.error || res.statusText}`;
+          showError(`エラーが発生しました（${res.status}）: ${data.error || res.statusText}`);
           return;
         }
-        resultEl.textContent = `分類: ${data.category}（決め手: ${describeKeyword(data.keyword)}）`;
+        showResult(data.category, data.keyword);
         history.unshift({ text: data.text, category: data.category, at: new Date() });
         if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT;
         saveHistory();
         renderHistory();
       } catch (err) {
-        resultEl.className = 'error';
-        resultEl.textContent = `エラーが発生しました: ${err.message}`;
+        showError(`エラーが発生しました: ${err.message}`);
       }
     });
+
+    // Ctrl / ⌘ + Enter でも実行できるようにする
+    function submitOnCtrlEnter(textarea, button) {
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          button.click();
+        }
+      });
+    }
+    submitOnCtrlEnter(textEl, document.getElementById('run'));
 
     historyFilterEl.addEventListener('change', renderHistory);
     document.getElementById('history-clear').addEventListener('click', () => {
@@ -161,6 +352,8 @@
     const batchTextEl = document.getElementById('batch-text');
     const batchResultEl = document.getElementById('batch-result');
     const batchSummaryEl = document.getElementById('batch-summary');
+    const batchBarEl = document.getElementById('batch-bar');
+    const batchContents = [...batchResultEl.children];
     const batchBodyEl = document.querySelector('#batch-table tbody');
     const batchCsvEl = document.getElementById('batch-csv');
     let batchResults = [];
@@ -175,29 +368,51 @@
 
     function renderBatch(results, counts) {
       batchResultEl.className = '';
-      batchResultEl.replaceChildren(batchSummaryEl, batchBodyEl.closest('table'));
+      batchResultEl.replaceChildren(...batchContents);
+      const total = results.length;
       batchSummaryEl.replaceChildren(
         ...Object.entries(counts).map(([category, n]) => {
-          const chip = document.createElement('span');
-          chip.className = 'chip';
-          chip.append(category);
-          const strong = document.createElement('strong');
-          strong.textContent = `${n}件`;
-          chip.append(strong);
-          return chip;
+          const stat = document.createElement('div');
+          stat.className = 'stat';
+          stat.dataset.cat = category;
+          const label = document.createElement('div');
+          label.className = 'label';
+          label.textContent = category;
+          const value = document.createElement('div');
+          value.className = 'value';
+          const pct = document.createElement('small');
+          pct.textContent = `件 · ${Math.round((n / total) * 100)}%`;
+          value.append(String(n), pct);
+          stat.append(label, value);
+          return stat;
         }),
+      );
+      batchBarEl.replaceChildren(
+        ...Object.entries(counts)
+          .filter(([, n]) => n > 0)
+          .map(([category, n]) => {
+            const seg = document.createElement('span');
+            seg.dataset.cat = category;
+            seg.style.width = `${(n / total) * 100}%`;
+            seg.title = `${category}: ${n}件`;
+            return seg;
+          }),
       );
       // 問い合わせ文はそのまま文字として入れる（HTML として解釈させない）
       batchBodyEl.replaceChildren(
         ...results.map((r, i) => {
           const tr = document.createElement('tr');
-          const cells = [String(i + 1), r.category, r.keyword ?? '―', r.text];
-          cells.forEach((value, col) => {
-            const td = document.createElement('td');
-            if (col === 0) td.className = 'num';
-            td.textContent = value;
-            tr.append(td);
-          });
+          const num = document.createElement('td');
+          num.className = 'num';
+          num.textContent = String(i + 1);
+          const cat = document.createElement('td');
+          cat.append(badge(r.category));
+          const kw = document.createElement('td');
+          kw.className = 'kw';
+          kw.textContent = r.keyword ?? '―';
+          const text = document.createElement('td');
+          text.textContent = r.text;
+          tr.append(num, cat, kw, text);
           return tr;
         }),
       );
@@ -230,6 +445,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);
         batchTextEl.value = data.lines.join('\n');
+        batchTextEl.focus();
       } catch (err) {
         showBatchError(`サンプルを読み込めませんでした: ${err.message}`);
       }
@@ -251,6 +467,8 @@
       a.click();
       URL.revokeObjectURL(url);
     });
+
+    submitOnCtrlEnter(batchTextEl, document.getElementById('batch-run'));
   </script>
 </body>
 </html>
