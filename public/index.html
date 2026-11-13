@@ -12,6 +12,20 @@
     #history { margin-top: 1.5rem; padding-left: 1.25rem; }
     #history li { margin-bottom: 0.4rem; }
     #history time { color: #666; font-size: 0.85em; margin-right: 0.5rem; }
+    h2 { margin-top: 2rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .row button { margin-top: 0.75rem; }
+    .muted { color: #666; font-size: 0.9em; }
+    #batch-result.error { padding: 0.75rem; background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; border-radius: 6px; }
+    #batch-summary { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+    .chip { padding: 0.25rem 0.75rem; border-radius: 999px; background: #eef2f7; }
+    .chip strong { margin-left: 0.25rem; }
+    #batch-table { width: 100%; border-collapse: collapse; font-size: 0.95em; }
+    #batch-table th, #batch-table td { border-bottom: 1px solid #ddd; padding: 0.4rem; text-align: left; vertical-align: top; }
+    #batch-table th { background: #f4f4f4; }
+    #batch-table td.num { color: #666; width: 2.5rem; }
+    .history-tools { margin-top: 0.5rem; }
+    .history-tools button { margin-top: 0; }
     #result.error { background: #fdecea; color: #b3261e; border: 1px solid #b3261e; font-weight: bold; }
   </style>
 </head>
@@ -21,14 +35,61 @@
   <textarea id="text" placeholder="例: 請求金額がおかしいです"></textarea>
   <div><button id="run" type="button">分類する</button></div>
   <div id="result" hidden></div>
+
+  <h2>まとめて分類</h2>
+  <p class="muted">1行に1件ずつ貼り付けてください。空行は無視します。</p>
+  <textarea id="batch-text" placeholder="先月の請求が高い&#10;ログインするとエラーが出る&#10;資料を送ってください"></textarea>
+  <div class="row">
+    <button id="batch-run" type="button">まとめて分類する</button>
+    <button id="batch-sample" type="button">サンプルを読み込む</button>
+    <button id="batch-csv" type="button" disabled>CSVで保存</button>
+  </div>
+  <div id="batch-result" hidden>
+    <div id="batch-summary"></div>
+    <table id="batch-table">
+      <thead><tr><th>#</th><th>分類</th><th>決め手</th><th>問い合わせ文</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
   <h2>直近の分類（最大5件）</h2>
+  <div class="row history-tools">
+    <label>カテゴリ:
+      <select id="history-filter"><option value="">すべて</option></select>
+    </label>
+    <button id="history-clear" type="button">履歴を消す</button>
+  </div>
   <ol id="history"></ol>
   <script>
     const textEl = document.getElementById('text');
     const resultEl = document.getElementById('result');
     const historyEl = document.getElementById('history');
+    const historyFilterEl = document.getElementById('history-filter');
     const HISTORY_LIMIT = 5;
-    const history = [];
+    const HISTORY_KEY = 'inquiry-desk:history';
+    const history = loadHistory();
+
+    // 履歴はブラウザ（localStorage）に保存して、リロードしても残るようにする
+    function loadHistory() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        return saved.map((h) => ({ ...h, at: new Date(h.at) }));
+      } catch {
+        return [];
+      }
+    }
+
+    function saveHistory() {
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      } catch {
+        // 保存できない環境（プライベートモードなど）では画面上の履歴だけで動かす
+      }
+    }
+
+    function describeKeyword(keyword) {
+      return keyword ? `「${keyword}」` : '該当キーワードなし';
+    }
 
     function escapeHtml(s) {
       return s
@@ -44,7 +105,9 @@
     }
 
     function renderHistory() {
+      const filter = historyFilterEl.value;
       historyEl.innerHTML = history
+        .filter((h) => !filter || h.category === filter)
         .slice(0, HISTORY_LIMIT - 1)
         .map((h) => `<li><time>${formatTime(h.at)}</time>[${h.category}] ${escapeHtml(h.text)}</li>`)
         .join('');
@@ -66,14 +129,127 @@
           resultEl.textContent = `エラーが発生しました（${res.status}）: ${data.error || res.statusText}`;
           return;
         }
-        resultEl.textContent = `分類: ${data.category}`;
+        resultEl.textContent = `分類: ${data.category}（決め手: ${describeKeyword(data.keyword)}）`;
         history.unshift({ text: data.text, category: data.category, at: new Date() });
         if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT;
+        saveHistory();
         renderHistory();
       } catch (err) {
         resultEl.className = 'error';
         resultEl.textContent = `エラーが発生しました: ${err.message}`;
       }
+    });
+
+    historyFilterEl.addEventListener('change', renderHistory);
+    document.getElementById('history-clear').addEventListener('click', () => {
+      if (!confirm('履歴をすべて消しますか？')) return;
+      history.length = 0;
+      saveHistory();
+      renderHistory();
+    });
+
+    fetch('/api/categories')
+      .then((res) => res.json())
+      .then((data) => {
+        for (const c of data.categories) historyFilterEl.add(new Option(c, c));
+      })
+      .catch(() => {});
+
+    renderHistory();
+
+    // ---- まとめて分類 ----
+    const batchTextEl = document.getElementById('batch-text');
+    const batchResultEl = document.getElementById('batch-result');
+    const batchSummaryEl = document.getElementById('batch-summary');
+    const batchBodyEl = document.querySelector('#batch-table tbody');
+    const batchCsvEl = document.getElementById('batch-csv');
+    let batchResults = [];
+
+    function showBatchError(message) {
+      batchResults = [];
+      batchCsvEl.disabled = true;
+      batchResultEl.hidden = false;
+      batchResultEl.className = 'error';
+      batchResultEl.textContent = message;
+    }
+
+    function renderBatch(results, counts) {
+      batchResultEl.className = '';
+      batchResultEl.replaceChildren(batchSummaryEl, batchBodyEl.closest('table'));
+      batchSummaryEl.replaceChildren(
+        ...Object.entries(counts).map(([category, n]) => {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.append(category);
+          const strong = document.createElement('strong');
+          strong.textContent = `${n}件`;
+          chip.append(strong);
+          return chip;
+        }),
+      );
+      // 問い合わせ文はそのまま文字として入れる（HTML として解釈させない）
+      batchBodyEl.replaceChildren(
+        ...results.map((r, i) => {
+          const tr = document.createElement('tr');
+          const cells = [String(i + 1), r.category, r.keyword ?? '―', r.text];
+          cells.forEach((value, col) => {
+            const td = document.createElement('td');
+            if (col === 0) td.className = 'num';
+            td.textContent = value;
+            tr.append(td);
+          });
+          return tr;
+        }),
+      );
+      batchResultEl.hidden = false;
+    }
+
+    document.getElementById('batch-run').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/classify/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: batchTextEl.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showBatchError(`エラーが発生しました（${res.status}）: ${data.error || res.statusText}`);
+          return;
+        }
+        batchResults = data.results;
+        batchCsvEl.disabled = false;
+        renderBatch(data.results, data.counts);
+      } catch (err) {
+        showBatchError(`エラーが発生しました: ${err.message}`);
+      }
+    });
+
+    document.getElementById('batch-sample').addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/samples');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        batchTextEl.value = data.lines.join('\n');
+      } catch (err) {
+        showBatchError(`サンプルを読み込めませんでした: ${err.message}`);
+      }
+    });
+
+    function toCsvField(value) {
+      const s = String(value ?? '');
+      return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    }
+
+    batchCsvEl.addEventListener('click', () => {
+      const rows = [['分類', '決め手', '問い合わせ文'], ...batchResults.map((r) => [r.category, r.keyword ?? '', r.text])];
+      // 先頭の BOM は Excel で開いたときの文字化け対策
+      const csv = '\uFEFF' + rows.map((row) => row.map(toCsvField).join(',')).join('\r\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'inquiry-desk-results.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     });
   </script>
 </body>
